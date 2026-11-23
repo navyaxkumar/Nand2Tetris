@@ -1,9 +1,0 @@
-@KBD
-D=M
-@113
-D=D-A
-@END
-D;JEO
-(END)
-@END
-0;JMP
