@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Hack assembler (Nand2Tetris project 6) in Python.
 
@@ -10,7 +9,6 @@ Output:  Prog.hack      (one 16-bit binary instruction per line)
 import os
 import sys
 
-# ---------------------------------------------------------------- tables
 COMP = {
     "0": "0101010", "1": "0111111", "-1": "0111010",
     "D": "0001100", "A": "0110000", "!D": "0001101", "!A": "0110001",
@@ -39,23 +37,23 @@ def predefined_symbols():
 
 
 def clean(line):
-    """Remove // comments and all whitespace."""
-    return line.split("//")[0].replace(" ", "").replace("\t", "").strip()
+    return "".join(line.split("//")[0].split())
 
 
-# ---------------------------------------------------------------- passes
 def first_pass(lines):
     """Strip comments/blank lines, record label addresses.
     Returns (instructions, labels)."""
-    instructions = []          # cleaned instruction text
-    labels = {}                # label -> ROM address
+    instructions = []          
+    labels = {}                
     for raw in lines:
         line = clean(raw)
         if not line:
             continue
         if line.startswith("(") and line.endswith(")"):
             name = line[1:-1]
-            labels[name] = len(instructions)   # next real instruction
+            if name in labels:
+                raise ValueError(f"Duplicate label: {name}")
+            labels[name] = len(instructions) 
         else:
             instructions.append(line)
     return instructions, labels
@@ -75,9 +73,6 @@ def encode_c(line):
 
 
 def second_pass(instructions, symbols):
-    """Translate each instruction to 16 bits.
-    New variables get RAM addresses 16, 17, 18 ...
-    Returns (binary_lines, variables)."""
     out = []
     variables = {}
     next_var = 16
@@ -108,7 +103,6 @@ def write_symbols(path, labels, variables):
             f.write(f"{name}\t{addr}\n")
 
 
-# ---------------------------------------------------------------- main
 def assemble(src_path):
     with open(src_path) as f:
         lines = f.read().splitlines()

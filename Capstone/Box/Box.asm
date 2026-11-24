@@ -5,20 +5,24 @@
 //      width = 16 * ((54 mod 4) + 1) = 48 pixels = 3 words, at the left edge.
 // Row r starts at SCREEN + 32*r, so the first word is SCREEN + 32*54 = 16384 + 1728.
 
+
 (LOOP)
     @KBD
     D=M
     @BLACK
-    D;JNE            // key pressed -> black
+    D;JNE
+
     @color
-    M=0              // no key -> white (erase)
+    M=0
     @DRAW
     0;JMP
+
 (BLACK)
     @color
-    M=-1             // -1 = 1111111111111111 = 16 black pixels
+    M=-1
 
 (DRAW)
+
     @1728            // 32 * 54
     D=A
     @SCREEN
