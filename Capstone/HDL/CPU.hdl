@@ -1,80 +1,49 @@
-
-/**
- * Hack Central Processing Unit (CPU)
- */
+// CPU.hdl - Hack CPU
+// A-instruction: 0vvvvvvvvvvvvvvv
+// C-instruction: 111a cccc ccdd djjj
+//   bit 15 = 1 (C-instr), bit 12 = a, bits 11..6 = comp (zx nx zy ny f no),
+//   bits 5,4,3 = d1 d2 d3 (A, D, M), bits 2,1,0 = j1 j2 j3 (<0, =0, >0)
 CHIP CPU {
-
-    IN  inM[16],
-        instruction[16],
-        reset;
-
-    OUT outM[16],
-        writeM,
-        addressM[15],
-        pc[15];
+    IN  inM[16], instruction[16], reset;
+    OUT outM[16], writeM, addressM[15], pc[15];
 
     PARTS:
-
-    // Decode instruction type
-    Not(in=instruction[15], out=aInstruction);
-
-    // A Register
-    And(a=instruction[15], b=instruction[5], out=cToA);
-    Or(a=aInstruction, b=cToA, out=loadA);
-
+    // ---- A register ----
+    Not(in=instruction[15], out=isA);
+    // A gets the instruction itself (A-instr) or the ALU output (C-instr)
     Mux16(a=instruction, b=aluOut, sel=instruction[15], out=aIn);
+    And(a=instruction[15], b=instruction[5], out=cLoadA);
+    Or(a=isA, b=cLoadA, out=loadA);
+    ARegister(in=aIn, load=loadA, out=aOut, out[0..14]=addressM);
 
-    Register(in=aIn, load=loadA, out=aOut, out[0..14]=addressM);
-
-    // D Register
-    And(a=instruction[15], b=instruction[4], out=loadD);
-
-    Register(in=aluOut, load=loadD, out=dOut);
-
-    // Select ALU Y input: A or M
+    // ---- ALU inputs: x = D, y = A or M (chosen by the a-bit) ----
     Mux16(a=aOut, b=inM, sel=instruction[12], out=aluY);
 
-    ALU(
-    x=dOut,
-    y=aluY,
-    zx=instruction[11],
-    nx=instruction[10],
-    zy=instruction[9],
-    ny=instruction[8],
-    f=instruction[7],
-    no=instruction[6],
-    out=aluOut,
-    zr=zrOut,
-    ng=ngOut
-);
+    // ---- D register ----
+    And(a=instruction[15], b=instruction[4], out=loadD);
+    DRegister(in=aluOut, load=loadD, out=dOut);
 
-And16(a=aluOut, b=true, out=outM);
+    // ---- ALU ----
+    ALU(x=dOut, y=aluY,
+        zx=instruction[11], nx=instruction[10],
+        zy=instruction[9],  ny=instruction[8],
+        f=instruction[7],   no=instruction[6],
+        out=aluOut, out=outM, zr=zr, ng=ng);
 
-    // Write to Memory
+    // ---- writeM ----
     And(a=instruction[15], b=instruction[3], out=writeM);
 
-    // Jump logic
-    And(a=ngOut, b=instruction[2], out=jlt);
-    And(a=zrOut, b=instruction[1], out=jeq);
+    // ---- Jump logic ----
+    Not(in=zr, out=notZr);
+    Not(in=ng, out=notNg);
+    And(a=notZr, b=notNg, out=pos);          // out > 0
+    And(a=instruction[2], b=ng,  out=jLt);   // j1 and out<0
+    And(a=instruction[1], b=zr,  out=jEq);   // j2 and out=0
+    And(a=instruction[0], b=pos, out=jGt);   // j3 and out>0
+    Or(a=jLt, b=jEq, out=jLtEq);
+    Or(a=jLtEq, b=jGt, out=jumpCond);
+    And(a=instruction[15], b=jumpCond, out=doJump);  // only for C-instructions
 
-    Or(a=ngOut, b=zrOut, out=notPos);
-    Not(in=notPos, out=pos);
-
-    And(a=pos, b=instruction[0], out=jgt);
-
-    Or(a=jlt, b=jeq, out=j1);
-    Or(a=j1, b=jgt, out=jump);
-
-    And(a=instruction[15], b=jump, out=doJump);
-
-    // Program Counter
-    Not(in=doJump, out=noJump);
-
-    PC(
-        in=aOut,
-        load=doJump,
-        inc=noJump,
-        reset=reset,
-        out[0..14]=pc
-    );
+    // ---- Program counter ----
+    PC(in=aOut, load=doJump, inc=true, reset=reset, out[0..14]=pc);
 }

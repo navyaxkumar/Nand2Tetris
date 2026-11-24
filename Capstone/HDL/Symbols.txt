@@ -1,0 +1,10 @@
+# Labels (ROM addresses)
+LOOP	0
+BLACK	8
+DRAW	10
+ROWLOOP	20
+
+# Variables (RAM addresses)
+color	16
+addr	17
+rows	18
